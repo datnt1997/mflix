@@ -36,7 +36,7 @@ export default class CommentsController {
 
   static async apiUpdateComment(req, res, next) {
     try {
-      const userJwt = req.get("Authorization").slice("Bearer ".length)
+      const userJwt = req.get("Authorization").slice("er ".length)
       const user = await User.decoded(userJwt)
       var { error } = user
       if (error) {
