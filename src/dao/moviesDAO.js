@@ -1,22 +1,22 @@
-import { ObjectId } from "bson"
+import { ObjectId } from 'bson';
 
-let movies
-let mflix
-const DEFAULT_SORT = [["tomatoes.viewer.numReviews", -1]]
+let movies;
+let mflix;
+const DEFAULT_SORT = [['tomatoes.viewer.numReviews', -1]];
 
 export default class MoviesDAO {
   static async injectDB(conn) {
     if (movies) {
-      return
+      return;
     }
     try {
-      mflix = await conn.db(process.env.MFLIX_NS)
-      movies = await conn.db(process.env.MFLIX_NS).collection("movies")
-      this.movies = movies // this is only for testing
+      mflix = await conn.db(process.env.MFLIX_NS);
+      movies = await conn.db(process.env.MFLIX_NS).collection('movies');
+      this.movies = movies; // this is only for testing
     } catch (e) {
       console.error(
         `Unable to establish a collection handle in moviesDAO: ${e}`,
-      )
+      );
     }
   }
 
@@ -26,15 +26,15 @@ export default class MoviesDAO {
    * @returns {Promise<ConfigurationResult>} An object with configuration details.
    */
   static async getConfiguration() {
-    const roleInfo = await mflix.command({ connectionStatus: 1 })
-    const authInfo = roleInfo.authInfo.authenticatedUserRoles[0]
-    const { poolSize, wtimeout } = movies.s.db.serverConfig.s.options
+    const roleInfo = await mflix.command({ connectionStatus: 1 });
+    const authInfo = roleInfo.authInfo.authenticatedUserRoles[0];
+    const { poolSize, writeConcern } = movies.s.db.serverConfig.s.options;
     let response = {
       poolSize,
-      wtimeout,
+      wtimeout: writeConcern.wtimeout,
       authInfo,
-    }
-    return response
+    };
+    return response;
   }
 
   /**
@@ -54,7 +54,7 @@ export default class MoviesDAO {
     match one or more values of a specific field.
     */
 
-    let cursor
+    let cursor;
     try {
       // TODO Ticket: Projection
       // Find movies matching the "countries" list, but only return the title
@@ -63,13 +63,13 @@ export default class MoviesDAO {
       // wire.
       cursor = await movies
         .find({ countries: { $in: countries } })
-        .project({ title: 1 })
+        .project({ title: 1 });
     } catch (e) {
-      console.error(`Unable to issue find command, ${e}`)
-      return []
+      console.error(`Unable to issue find command, ${e}`);
+      return [];
     }
 
-    return cursor.toArray()
+    return cursor.toArray();
   }
 
   /**
@@ -78,12 +78,12 @@ export default class MoviesDAO {
    * @returns {QueryParams} The QueryParams for text search
    */
   static textSearchQuery(text) {
-    const query = { $text: { $search: text } }
-    const meta_score = { $meta: "textScore" }
-    const sort = [["score", meta_score]]
-    const project = { score: meta_score }
+    const query = { $text: { $search: text } };
+    const meta_score = { $meta: 'textScore' };
+    const sort = [['score', meta_score]];
+    const project = { score: meta_score };
 
-    return { query, project, sort }
+    return { query, project, sort };
   }
 
   /**
@@ -92,13 +92,13 @@ export default class MoviesDAO {
    * @returns {QueryParams} The QueryParams for cast search
    */
   static castSearchQuery(cast) {
-    const searchCast = Array.isArray(cast) ? cast : cast.split(", ")
+    const searchCast = Array.isArray(cast) ? cast : cast.split(', ');
 
-    const query = { cast: { $in: searchCast } }
-    const project = {}
-    const sort = DEFAULT_SORT
+    const query = { cast: { $in: searchCast } };
+    const project = {};
+    const sort = DEFAULT_SORT;
 
-    return { query, project, sort }
+    return { query, project, sort };
   }
 
   /**
@@ -114,15 +114,15 @@ export default class MoviesDAO {
     MongoDB for movies with that genre.
     */
 
-    const searchGenre = Array.isArray(genre) ? genre : genre.split(", ")
+    const searchGenre = Array.isArray(genre) ? genre : genre.split(', ');
 
     // TODO Ticket: Text and Subfield Search
     // Construct a query that will search for the chosen genre.
-    const query = { genres: { $in: searchGenre } }
-    const project = {}
-    const sort = DEFAULT_SORT
+    const query = { genres: { $in: searchGenre } };
+    const project = {};
+    const sort = DEFAULT_SORT;
 
-    return { query, project, sort }
+    return { query, project, sort };
   }
 
   /**
@@ -139,21 +139,21 @@ export default class MoviesDAO {
     moviesPerPage = 20,
   } = {}) {
     if (!filters || !filters.cast) {
-      throw new Error("Must specify cast members to filter by.")
+      throw new Error('Must specify cast members to filter by.');
     }
-    const matchStage = { $match: filters }
-    const sortStage = { $sort: { "tomatoes.viewer.numReviews": -1 } }
-    const countingPipeline = [matchStage, sortStage, { $count: "count" }]
-    const skipStage = { $skip: moviesPerPage * page }
-    const limitStage = { $limit: moviesPerPage }
+    const matchStage = { $match: filters };
+    const sortStage = { $sort: { 'tomatoes.viewer.numReviews': -1 } };
+    const countingPipeline = [matchStage, sortStage, { $count: 'count' }];
+    const skipStage = { $skip: moviesPerPage * page };
+    const limitStage = { $limit: moviesPerPage };
     const facetStage = {
       $facet: {
         runtime: [
           {
             $bucket: {
-              groupBy: "$runtime",
+              groupBy: '$runtime',
               boundaries: [0, 60, 90, 120, 180],
-              default: "other",
+              default: 'other',
               output: {
                 count: { $sum: 1 },
               },
@@ -163,9 +163,9 @@ export default class MoviesDAO {
         rating: [
           {
             $bucket: {
-              groupBy: "$metacritic",
+              groupBy: '$metacritic',
               boundaries: [0, 50, 70, 90, 100],
-              default: "other",
+              default: 'other',
               output: {
                 count: { $sum: 1 },
               },
@@ -175,12 +175,12 @@ export default class MoviesDAO {
         movies: [
           {
             $addFields: {
-              title: "$title",
+              title: '$title',
             },
           },
         ],
       },
-    }
+    };
 
     /**
     Ticket: Faceted Search
@@ -201,17 +201,17 @@ export default class MoviesDAO {
       skipStage,
       limitStage,
       facetStage,
-    ]
+    ];
 
     try {
-      const results = await (await movies.aggregate(queryPipeline)).next()
-      const count = await (await movies.aggregate(countingPipeline)).next()
+      const results = await (await movies.aggregate(queryPipeline)).next();
+      const count = await (await movies.aggregate(countingPipeline)).next();
       return {
         ...results,
         ...count,
-      }
+      };
     } catch (e) {
-      return { error: "Results too large, be more restrictive in filter" }
+      return { error: 'Results too large, be more restrictive in filter' };
     }
   }
 
@@ -230,27 +230,27 @@ export default class MoviesDAO {
     page = 0,
     moviesPerPage = 20,
   } = {}) {
-    let queryParams = {}
+    let queryParams = {};
     if (filters) {
-      if ("text" in filters) {
-        queryParams = this.textSearchQuery(filters["text"])
-      } else if ("cast" in filters) {
-        queryParams = this.castSearchQuery(filters["cast"])
-      } else if ("genre" in filters) {
-        queryParams = this.genreSearchQuery(filters["genre"])
+      if ('text' in filters) {
+        queryParams = this.textSearchQuery(filters['text']);
+      } else if ('cast' in filters) {
+        queryParams = this.castSearchQuery(filters['cast']);
+      } else if ('genre' in filters) {
+        queryParams = this.genreSearchQuery(filters['genre']);
       }
     }
 
-    let { query = {}, project = {}, sort = DEFAULT_SORT } = queryParams
-    let cursor
+    let { query = {}, project = {}, sort = DEFAULT_SORT } = queryParams;
+    let cursor;
     try {
       cursor = await movies
         .find(query)
         .project(project)
-        .sort(sort)
+        .sort(sort);
     } catch (e) {
-      console.error(`Unable to issue find command, ${e}`)
-      return { moviesList: [], totalNumMovies: 0 }
+      console.error(`Unable to issue find command, ${e}`);
+      return { moviesList: [], totalNumMovies: 0 };
     }
 
     /**
@@ -264,18 +264,18 @@ export default class MoviesDAO {
 
     // TODO Ticket: Paging
     // Use the cursor to only return the movies that belong on the current page
-    const displayCursor = cursor.skip(moviesPerPage * page).limit(moviesPerPage)
+    const displayCursor = cursor.skip(moviesPerPage * page).limit(moviesPerPage);
 
     try {
-      const moviesList = await displayCursor.toArray()
-      const totalNumMovies = page === 0 ? await movies.countDocuments(query) : 0
+      const moviesList = await displayCursor.toArray();
+      const totalNumMovies = page === 0 ? await movies.countDocuments(query) : 0;
 
-      return { moviesList, totalNumMovies }
+      return { moviesList, totalNumMovies };
     } catch (e) {
       console.error(
         `Unable to convert cursor to array or problem counting documents, ${e}`,
-      )
-      return { moviesList: [], totalNumMovies: 0 }
+      );
+      return { moviesList: [], totalNumMovies: 0 };
     }
   }
 
@@ -306,15 +306,15 @@ export default class MoviesDAO {
         },
         {
           $lookup: {
-            from: "comments",
+            from: 'comments',
             let: {
-              id: "$_id",
+              id: '$_id',
             },
             pipeline: [
               {
                 $match: {
                   $expr: {
-                    $eq: ["$movie_id", "$$id"],
+                    $eq: ['$movie_id', '$$id'],
                   },
                 },
               },
@@ -322,11 +322,11 @@ export default class MoviesDAO {
                 $sort: { date: -1 },
               },
             ],
-            as: "comments",
+            as: 'comments',
           },
         },
-      ]
-      return await movies.aggregate(pipeline).next()
+      ];
+      return await movies.aggregate(pipeline).next();
     } catch (e) {
       /**
       Ticket: Error Handling
@@ -337,8 +337,12 @@ export default class MoviesDAO {
 
       // TODO Ticket: Error Handling
       // Catch the InvalidId error by string matching, and then handle it.
-      console.error(`Something went wrong in getMovieByID: ${e}`)
-      throw e
+      console.error(`Something went wrong in getMovieByID: ${e.message}`);
+      if (String(e).startsWith('MongoError: E11000 duplicate key error')) {
+        return { error: 'A user with the given email already exists.' };
+      }
+      return null;
+      // throw e;
     }
   }
 }

@@ -1,16 +1,16 @@
-import { ObjectId } from "bson"
+import { ObjectId } from 'bson';
 
-let comments
+let comments;
 
 export default class CommentsDAO {
   static async injectDB(conn) {
     if (comments) {
-      return
+      return;
     }
     try {
-      comments = await conn.db(process.env.MFLIX_NS).collection("comments")
+      comments = await conn.db(process.env.MFLIX_NS).collection('comments');
     } catch (e) {
-      console.error(`Unable to establish collection handles in userDAO: ${e}`)
+      console.error(`Unable to establish collection handles in userDAO: ${e}`);
     }
   }
 
@@ -45,19 +45,19 @@ export default class CommentsDAO {
     try {
       // TODO Ticket: Create/Update Comments
       // Construct the comment document to be inserted into MongoDB.
-      const { name, email } = user
+      const { name, email } = user;
       const commentDoc = {
         name,
         email,
         movie_id: ObjectId(movieId),
         text: comment,
         date,
-      }
+      };
 
-      return await comments.insertOne(commentDoc)
+      return await comments.insertOne(commentDoc);
     } catch (e) {
-      console.error(`Unable to post comment: ${e}`)
-      return { error: e }
+      console.error(`Unable to post comment: ${e}`);
+      return { error: e };
     }
   }
 
@@ -81,12 +81,12 @@ export default class CommentsDAO {
         {
           $set: { text, date },
         },
-      )
+      );
 
-      return updateResponse
+      return updateResponse;
     } catch (e) {
-      console.error(`Unable to update comment: ${e}`)
-      return { error: e }
+      console.error(`Unable to update comment: ${e}`);
+      return { error: e };
     }
   }
 
@@ -106,12 +106,12 @@ export default class CommentsDAO {
       const deleteResponse = await comments.deleteOne({
         _id: ObjectId(commentId),
         email: userEmail,
-      })
+      });
 
-      return deleteResponse
+      return deleteResponse;
     } catch (e) {
-      console.error(`Unable to delete comment: ${e}`)
-      return { error: e }
+      console.error(`Unable to delete comment: ${e}`);
+      return { error: e };
     }
   }
 
@@ -126,20 +126,35 @@ export default class CommentsDAO {
     try {
       // TODO Ticket: User Report
       // Return the 20 users who have commented the most on MFlix.
-      const pipeline = []
+      const pipeline = [
+        {
+          '$group': {
+            '_id': '$email', 
+            'count': {
+              '$sum': 1
+            }
+          }
+        }, {
+          '$sort': {
+            'count': -1
+          }
+        }, {
+          '$limit': 20
+        }
+      ];
 
       // TODO Ticket: User Report
       // Use a more durable Read Concern here to make sure this data is not stale.
-      const readConcern = comments.readConcern
+      const readConcern = {level: 'majority'};
 
       const aggregateResult = await comments.aggregate(pipeline, {
         readConcern,
-      })
+      });
 
-      return await aggregateResult.toArray()
+      return await aggregateResult.toArray();
     } catch (e) {
-      console.error(`Unable to retrieve most active commenters: ${e}`)
-      return { error: e }
+      console.error(`Unable to retrieve most active commenters: ${e}`);
+      return { error: e };
     }
   }
 }
